@@ -11,83 +11,78 @@ const commonInstance = new NfcEIWCommon(canvas);
 const clearCanvas = commonInstance.clearCanvas.bind(commonInstance);
 
 /**
- * Adapted from https://stackoverflow.com/a/65433398/11447682
- * @param {string} text
- * @param {string} fontFace
+ * NEW version with Word Wrapping
+ * @param {string} text The full text to draw.
+ * @param {string} fontFace The font to use.
+ * @param {number} paddingW The padding on the left and right.
  */
-function fitAndFillTextCenter(text, fontFace = 'Arial', paddingW = 4) {
-	if (!text) {
-		clearCanvas();
-		return;
-	}
-	const { height: canvasH, width: canvasW } = canvas;
-	let fontSize = getFontSizeToFit(text, fontFace, canvasW - (paddingW * 2), canvasH);
-	ctx.fillStyle = textColor;
-	ctx.font = fontSize + `px ${fontFace}`;
+function fitAndFillText(text, fontFace = 'Arial', paddingW = 4) {
+    if (!text) {
+        clearCanvas();
+        return;
+    }
 
-	ctx.textBaseline = 'middle';
-	ctx.textAlign = 'center';
+    const { height: canvasH, width: canvasW } = canvas;
+    const availableWidth = canvasW - (paddingW * 2);
 
-	const x = 0;
-	const y = 0;
-	const lines = text.match(/[^\r\n]+/g);
-	for (let i = 0; i < lines.length; i++) {
-		let xL = (canvasW - x) / 2;
-		let yL = y + (canvasH / (lines.length + 1)) * (i + 1);
+    // --- Font Size Calculation ---
+    // This is a simple approach; a more complex one could adjust size based on text length.
+    let fontSize = 20; // A fixed font size often works best for wrapping.
+    ctx.font = fontSize + `px ${fontFace}`;
+    ctx.fillStyle = textColor;
+    ctx.textBaseline = 'top'; // Use top baseline for easier y-coordinate calculation
+    const lineHeight = fontSize * 1.2; // Spacing between lines
 
-		ctx.fillText(lines[i], xL, yL);
-	}
+    // --- Word Wrapping Logic ---
+    const words = text.split(' ');
+    let line = '';
+    let y = paddingW; // Start Y position
+
+    for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > availableWidth && n > 0) {
+            // The line is full, draw it
+            ctx.fillText(line, paddingW, y);
+            // Start a new line
+            line = words[n] + ' ';
+            y += lineHeight;
+        } else {
+            // Word fits, add it to the current line
+            line = testLine;
+        }
+    }
+    // Draw the last remaining line
+    ctx.fillText(line, paddingW, y);
 }
 
-/**
- * Adapted from https://stackoverflow.com/a/65433398/11447682
- * @param {string} text
- * @param {string} fontFace
- * @param {number} width
- * @param {number} height
- */
-function getFontSizeToFit(text, fontFace, width, height) {
-	const lineSpacingPercent = 20;
-	ctx.font = `1px ${fontFace}`;
-
-	let fitFontWidth = Number.MAX_VALUE;
-	let lineCount = 1;
-	const lines = text.match(/[^\r\n]+/g);
-	if (lines) {
-		lineCount = lines.length;
-		lines.forEach((line) => {
-			fitFontWidth = Math.min(fitFontWidth, width / ctx.measureText(line).width);
-		});
-	}
-	let fitFontHeight = height / (lineCount * (1 + (lineSpacingPercent / 100)));
-	return Math.min(fitFontHeight, fitFontWidth);
-}
 
 /**
  * Normal operation is black text on white, but you can set inverted
  * @param {boolean} [updatedInverted]
  */
 function setInverted(updatedInverted) {
-	inverted = typeof updatedInverted === 'boolean' ? updatedInverted : !inverted;
-	if (inverted) {
-		bgColor = 'black';
-		textColor = 'white';
-	} else {
-		bgColor = 'white';
-		textColor = 'black';
-	}
-	renderToCanvas();
+    inverted = typeof updatedInverted === 'boolean' ? updatedInverted : !inverted;
+    if (inverted) {
+        bgColor = 'black';
+        textColor = 'white';
+    } else {
+        bgColor = 'white';
+        textColor = 'black';
+    }
+    renderToCanvas();
 }
 
 function drawBg() {
-	ctx.fillStyle = bgColor;
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function renderToCanvas() {
-	clearCanvas();
-	drawBg();
-	fitAndFillTextCenter(textInput.value);
+    clearCanvas();
+    drawBg();
+    fitAndFillText(textInput.value); // Use the new wrapping function
 }
 
 renderToCanvas();
@@ -95,14 +90,16 @@ setTimeout(renderToCanvas, 200);
 
 // Attach listeners
 textInput.addEventListener('keyup', renderToCanvas);
+textInput.addEventListener('input', renderToCanvas); // Also listen to 'input' for programmatic changes
 document.querySelector('button#addLineBreak').addEventListener('click', () => {
-	textInput.value += '\n';
+    textInput.value += '\n';
+    renderToCanvas();
 });
 document.querySelector('button#reset').addEventListener('click', () => {
-	textInput.value = defaultText;
-	setInverted(false);
-	renderToCanvas();
+    textInput.value = defaultText;
+    setInverted(false);
+    renderToCanvas();
 });
 document.querySelector('button#setInverted').addEventListener('click', () => {
-	setInverted();
+    setInverted();
 });
