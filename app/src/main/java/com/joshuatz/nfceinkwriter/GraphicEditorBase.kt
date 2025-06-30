@@ -91,7 +91,7 @@ abstract class GraphicEditorBase: AppCompatActivity() {
             }
         }
 
-        // --- START: New code to connect ViewModel ---
+        // --- START: Code to connect ViewModel ---
         
         // Setup the new observers to connect the ViewModel to the UI
         observeViewModel()
@@ -105,12 +105,12 @@ abstract class GraphicEditorBase: AppCompatActivity() {
             viewModel.fetchAndExtractStations()
         } else {
             // Handle case where no URL is set
-            Toast.makeText(this, "No URL is set. Please go to settings.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "No URL is set. Please go to settings in the main app.", Toast.LENGTH_LONG).show()
         }
-        // --- END: New code ---
+        // --- END: Code ---
     }
     
-    // --- START: New function to handle ViewModel updates ---
+    // --- START: Function to handle ViewModel updates ---
     private fun observeViewModel() {
         val spinnerStations: Spinner = findViewById(R.id.spinner_stations)
 
@@ -121,9 +121,10 @@ abstract class GraphicEditorBase: AppCompatActivity() {
         })
 
         viewModel.selectedStationText.observe(this, Observer { content ->
-            // When new text is downloaded, load it into the WebView
-            // We need a javascript function in the WebView's HTML to do this. Let's call it "setTextContent"
-            val escapedContent = content.replace("'", "\\'").replace("\"", "\\\"").replace("\n", "\\n")
+            // When new text is downloaded, load it into the WebView using a javascript function
+            // First, escape the content to be safely passed in a javascript string
+            val escapedContent = content.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+            // Now, call the javascript function `setTextContent` inside the WebView
             mWebView?.evaluateJavascript("setTextContent('$escapedContent');", null)
         })
 
@@ -141,7 +142,7 @@ abstract class GraphicEditorBase: AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
-    // --- END: New function ---
+    // --- END: Function ---
 
     private suspend fun getAndFlashGraphic() {
         val mContext = this

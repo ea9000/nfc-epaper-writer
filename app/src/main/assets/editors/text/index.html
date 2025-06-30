@@ -22,5 +22,18 @@
 		</div>
 		<script src="../common.js"></script>
 		<script src="main.js"></script>
+
+		<!-- New Javascript function to set the content of the text editor -->
+		<script>
+			function setTextContent(newText) {
+				const textInputElement = document.getElementById('textInput');
+				if (textInputElement) {
+					textInputElement.value = newText;
+                    // Also trigger the 'input' event so the canvas updates automatically
+                    const event = new Event('input', { bubbles: true, cancelable: true });
+                    textInputElement.dispatchEvent(event);
+				}
+			}
+		</script>
 	</body>
 </html>

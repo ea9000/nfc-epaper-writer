@@ -47,4 +47,5 @@ object IntentKeys {
     var GeneratedImgMime = "$PackageName.imgMime"
 }
 
+
 val GeneratedImageFilename = "generated.png"
