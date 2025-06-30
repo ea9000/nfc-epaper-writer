@@ -1,14 +1,27 @@
 .inputArea {
-	justify-content: space-evenly;
+    /* Add padding to the container, so the text box doesn't touch the edges */
+    padding: 0 16px;
 }
+
 #textInput {
-	min-height: 100px;
+    min-height: 150px;
+    width: 100%; /* Make textarea take full width of its container */
+    box-sizing: border-box; /* Important for width calculation */
 }
+
 .buttonsWrapper {
-	align-content: center;
+    justify-content: space-evenly; /* Spread out the buttons */
+    margin-top: 8px; /* Add some space above the buttons */
 }
+
 .buttonsWrapper button {
-	padding: 4px 8px;
-	margin: 7px auto;
-	font-size: 1.2rem;
+    padding: 4px 8px;
+    margin: 7px;
+    font-size: 1.2rem;
+}
+
+/* Add this new rule to center the canvas */
+.canvasWrapper {
+    justify-content: center;
+    margin-top: 16px; /* Add some space above the canvas */
 }
