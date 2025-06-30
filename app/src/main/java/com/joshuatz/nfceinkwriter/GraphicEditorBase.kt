@@ -8,11 +8,18 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
+import android.view.View
 import android.webkit.*
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.Spinner
+import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.annotation.IdRes
 import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader
 import kotlinx.coroutines.Dispatchers
@@ -23,11 +30,17 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 abstract class GraphicEditorBase: AppCompatActivity() {
-    @get:LayoutRes abstract val layoutId: Int
-    @get:IdRes abstract val flashButtonId: Int
-    @get:IdRes abstract val webViewId: Int
+    @get:LayoutRes
+    abstract val layoutId: Int
+    @get:IdRes
+    abstract val flashButtonId: Int
+    @get:IdRes
+    abstract val webViewId: Int
     abstract val webViewUrl: String
     protected var mWebView: WebView? = null
+
+    // Initialize the ViewModel
+    private val viewModel: MainViewModel by viewModels()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +57,6 @@ abstract class GraphicEditorBase: AppCompatActivity() {
 
         // Override WebView client
         webView.webViewClient = object : WebViewClient() {
-            // If request is for local file, intercept and serve
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -57,7 +69,6 @@ abstract class GraphicEditorBase: AppCompatActivity() {
                 onWebViewPageStarted()
             }
 
-            // Listen for page load finished, before evaluating JS
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 onWebViewPageFinished()
@@ -79,7 +90,58 @@ abstract class GraphicEditorBase: AppCompatActivity() {
                 getAndFlashGraphic()
             }
         }
+
+        // --- START: New code to connect ViewModel ---
+        
+        // Setup the new observers to connect the ViewModel to the UI
+        observeViewModel()
+
+        // Load the saved URL and tell the ViewModel about it
+        val preferences = Preferences(this)
+        val savedUrl = preferences.getPreferences()?.getString(PrefKeys.BaseUrl, "")
+        if (!savedUrl.isNullOrEmpty()) {
+            viewModel.setBaseUrl(savedUrl)
+            // If a URL was already saved, fetch the stations immediately
+            viewModel.fetchAndExtractStations()
+        } else {
+            // Handle case where no URL is set
+            Toast.makeText(this, "No URL is set. Please go to settings.", Toast.LENGTH_LONG).show()
+        }
+        // --- END: New code ---
     }
+    
+    // --- START: New function to handle ViewModel updates ---
+    private fun observeViewModel() {
+        val spinnerStations: Spinner = findViewById(R.id.spinner_stations)
+
+        viewModel.stationList.observe(this, Observer { stations ->
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, stations)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerStations.adapter = adapter
+        })
+
+        viewModel.selectedStationText.observe(this, Observer { content ->
+            // When new text is downloaded, load it into the WebView
+            // We need a javascript function in the WebView's HTML to do this. Let's call it "setTextContent"
+            val escapedContent = content.replace("'", "\\'").replace("\"", "\\\"").replace("\n", "\\n")
+            mWebView?.evaluateJavascript("setTextContent('$escapedContent');", null)
+        })
+
+        viewModel.errorMessage.observe(this, Observer { message ->
+            if (message.isNotEmpty()) {
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+        })
+
+        spinnerStations.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedStation = parent?.getItemAtPosition(position).toString()
+                viewModel.downloadFileContent(selectedStation)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+    // --- END: New function ---
 
     private suspend fun getAndFlashGraphic() {
         val mContext = this
