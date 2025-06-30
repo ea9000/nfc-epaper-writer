@@ -94,8 +94,6 @@ abstract class GraphicEditorBase: AppCompatActivity() {
                 getAndFlashGraphic()
             }
         }
-
-        // --- START: Code to connect ViewModel ---
         
         observeViewModel()
 
@@ -107,7 +105,6 @@ abstract class GraphicEditorBase: AppCompatActivity() {
         } else {
             Toast.makeText(this, "No URL is set. Please go to settings in the main app.", Toast.LENGTH_LONG).show()
         }
-        // --- END: Code ---
     }
     
     private fun observeViewModel() {
@@ -120,12 +117,10 @@ abstract class GraphicEditorBase: AppCompatActivity() {
         })
 
         viewModel.selectedStationText.observe(this, Observer { content ->
-            // --- START: Corrected line break handling ---
             // Escape any backticks in the content itself, then use template literals (` `) in javascript
             // to preserve the newline characters from the file.
             val safeContent = content.replace("`", "\\`")
             mWebView?.evaluateJavascript("setTextContent(`${safeContent}`);", null)
-            // --- END: Corrected line break handling ---
         })
 
         viewModel.errorMessage.observe(this, Observer { message ->
@@ -159,8 +154,10 @@ abstract class GraphicEditorBase: AppCompatActivity() {
     private suspend fun getAndFlashGraphic() {
         val mContext = this
         val imageBytes = this.getBitmapFromWebView(this.mWebView!!)
+        // Decode binary to bitmap
         @Suppress("UNUSED_VARIABLE")
         val bitmap: Bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        // Save bitmap to file
         withContext(Dispatchers.IO) {
             openFileOutput(GeneratedImageFilename, Context.MODE_PRIVATE).use { fileOutStream ->
                 fileOutStream.write(imageBytes)
@@ -192,7 +189,10 @@ abstract class GraphicEditorBase: AppCompatActivity() {
 
         return suspendCoroutine<ByteArray> { continuation ->
             webView.evaluateJavascript("window.imgStr;") { bitmapStr ->
-                val imageBytes = Base64.decode(bitmapStr, Base64.DEFAULT)
+                // The result from JS is a base64 string with a prefix "data:image/png;base64,"
+                // We need to remove the prefix before decoding.
+                val pureBase64Encoded = bitmapStr.substring(bitmapStr.indexOf(",") + 1)
+                val imageBytes = Base64.decode(pureBase64Encoded, Base64.DEFAULT)
                 continuation.resume(imageBytes)
             }
         }
