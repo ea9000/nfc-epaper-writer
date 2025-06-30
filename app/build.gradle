@@ -54,4 +54,11 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
     // will start new way to browse the files
+    // For ViewModel and LiveData
+    implementation "androidx.activity:activity-ktx:1.2.4"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.3.1"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.3.1"
+
+// For parsing HTML content
+    implementation 'org.jsoup:jsoup:1.17.2'
 }
