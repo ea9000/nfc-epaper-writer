@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -45,6 +46,9 @@ abstract class GraphicEditorBase: AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        clearAppCache()
+        
         setContentView(this.layoutId)
 
         val webView: WebView = findViewById(this.webViewId)
@@ -93,24 +97,19 @@ abstract class GraphicEditorBase: AppCompatActivity() {
 
         // --- START: Code to connect ViewModel ---
         
-        // Setup the new observers to connect the ViewModel to the UI
         observeViewModel()
 
-        // Load the saved URL and tell the ViewModel about it
         val preferences = Preferences(this)
         val savedUrl = preferences.getPreferences()?.getString(PrefKeys.BaseUrl, "")
         if (!savedUrl.isNullOrEmpty()) {
             viewModel.setBaseUrl(savedUrl)
-            // If a URL was already saved, fetch the stations immediately
             viewModel.fetchAndExtractStations()
         } else {
-            // Handle case where no URL is set
             Toast.makeText(this, "No URL is set. Please go to settings in the main app.", Toast.LENGTH_LONG).show()
         }
         // --- END: Code ---
     }
     
-    // --- START: Function to handle ViewModel updates ---
     private fun observeViewModel() {
         val spinnerStations: Spinner = findViewById(R.id.spinner_stations)
 
@@ -121,11 +120,12 @@ abstract class GraphicEditorBase: AppCompatActivity() {
         })
 
         viewModel.selectedStationText.observe(this, Observer { content ->
-            // When new text is downloaded, load it into the WebView using a javascript function
-            // First, escape the content to be safely passed in a javascript string
-            val escapedContent = content.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
-            // Now, call the javascript function `setTextContent` inside the WebView
-            mWebView?.evaluateJavascript("setTextContent('$escapedContent');", null)
+            // --- START: Corrected line break handling ---
+            // Escape any backticks in the content itself, then use template literals (` `) in javascript
+            // to preserve the newline characters from the file.
+            val safeContent = content.replace("`", "\\`")
+            mWebView?.evaluateJavascript("setTextContent(`${safeContent}`);", null)
+            // --- END: Corrected line break handling ---
         })
 
         viewModel.errorMessage.observe(this, Observer { message ->
@@ -142,15 +142,25 @@ abstract class GraphicEditorBase: AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
-    // --- END: Function ---
+
+    private fun clearAppCache() {
+        try {
+            val dir: File = cacheDir
+            if (dir.deleteRecursively()) {
+                Log.i("Cache", "App cache cleared successfully.")
+            } else {
+                Log.e("Cache", "Failed to clear app cache.")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     private suspend fun getAndFlashGraphic() {
         val mContext = this
         val imageBytes = this.getBitmapFromWebView(this.mWebView!!)
-        // Decode binary to bitmap
         @Suppress("UNUSED_VARIABLE")
         val bitmap: Bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-        // Save bitmap to file
         withContext(Dispatchers.IO) {
             openFileOutput(GeneratedImageFilename, Context.MODE_PRIVATE).use { fileOutStream ->
                 fileOutStream.write(imageBytes)
@@ -167,22 +177,13 @@ abstract class GraphicEditorBase: AppCompatActivity() {
     protected fun updateCanvasSize() {
         val preferences = Preferences(this)
         val pixelSize = ScreenSizesInPixels[preferences.getScreenSize()]
-        // Pass display size to WebView
         this.mWebView?.evaluateJavascript("setDisplaySize(${pixelSize!!.first}, ${pixelSize.second});", null)
     }
-
-    // Put any JS eval calls here that need the page loaded first
-    open fun onWebViewPageFinished() {
-        // Available to subclass
-    }
-
-    open fun onWebViewPageStarted() {
-        // Available to subclass
-    }
+    
+    open fun onWebViewPageFinished() {}
+    open fun onWebViewPageStarted() {}
 
     open suspend fun getBitmapFromWebView(webView: WebView): ByteArray {
-        // Dump bitmap data from Canvas
-        // Cheating by using delay + global. @TODO - rewrite to addJavascriptInterface (careful)
         webView.evaluateJavascript(
             "getImgSerializedFromCanvas(undefined, undefined, (output) => window.imgStr = output);",
             null
